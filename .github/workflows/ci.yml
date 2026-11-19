@@ -1,0 +1,59 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - name: Prepare verified Node.js runtime
+        run: ./tools/prepare-windows-runtime.ps1
+      - name: Run tests
+        run: ./runtime/node.exe --test
+      - name: Build Windows ZIP
+        run: python tools/package-windows.py
+      - name: Verify extracted app starts
+        env:
+          QS_ECHO_PORT: '43127'
+        run: |
+          $staging = Join-Path $env:RUNNER_TEMP 'Qs echo package test'
+          Expand-Archive -LiteralPath 'dist/Qs-echo-Windows-x64.zip' -DestinationPath $staging
+          $app = Join-Path $staging 'Qs-echo'
+          $env:QS_ECHO_DATA = Join-Path $staging 'smoke-workspace.json'
+          $node = Join-Path $app 'runtime/node.exe'
+          $process = Start-Process -FilePath $node -ArgumentList 'server.mjs' -WorkingDirectory $app -WindowStyle Hidden -PassThru
+          try {
+            for ($attempt = 0; $attempt -lt 30; $attempt++) {
+              if ($process.HasExited) { throw "Packaged app exited with code $($process.ExitCode)." }
+              try {
+                $health = Invoke-RestMethod 'http://127.0.0.1:43127/api/health' -TimeoutSec 1
+              } catch {
+                Start-Sleep -Milliseconds 250
+                continue
+              }
+              if ($health.app -ne 'qs-echo') { throw 'Unexpected response from packaged app.' }
+              return
+            }
+            throw 'The packaged app did not start in time.'
+          } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id }
+          }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: dist/Qs-echo-Windows-x64.zip
+          archive: false
+          if-no-files-found: error
+          retention-days: 7

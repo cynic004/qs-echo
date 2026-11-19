@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f4f6f1">
+  <title>Q’s echo · WhatsApp 回复助手</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <a class="skip" href="#main">跳到主要内容</a>
+  <header class="topbar">
+    <a class="brand" href="#import" aria-label="Q’s echo 首页">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>Q’s echo</span>
+    </a>
+    <button class="settings-button" type="button" id="open-ai" aria-haspopup="dialog"><span class="indicator" aria-hidden="true"></span><span id="ai-status">设置 AI</span></button>
+  </header>
+
+  <div class="workspace">
+    <aside class="sidebar">
+      <nav aria-label="使用步骤" class="steps">
+        <button type="button" class="step current" id="nav-import" data-panel="import" aria-current="step"><span class="step-number">1</span><span><strong>导入聊天</strong><small>选择一段对话</small></span></button>
+        <button type="button" class="step" id="nav-learn" data-panel="learn" disabled><span class="step-number">2</span><span><strong>学习语气</strong><small>看看你怎么说话</small></span></button>
+        <button type="button" class="step" id="nav-reply" data-panel="reply" disabled><span class="step-number">3</span><span><strong>准备回复</strong><small>选时间，确认后发送</small></span><span id="reply-badge" class="reply-badge" aria-label="有到时间的回复" hidden></span></button>
+      </nav>
+      <div class="sidebar-note">
+        <strong>每次只选一段聊天</strong>
+        <p>聊天文件由你亲自选择。使用 OpenAI 时，只发送这次请求所需的内容。</p>
+      </div>
+    </aside>
+
+    <main id="main">
+      <p id="global-notice" class="notice global-notice is-error" tabindex="-1" hidden></p>
+      <div id="demo-banner" class="demo-banner" hidden><span><strong>正在试用示例</strong> · 这里的聊天和回复都是虚构的。</span><button type="button" class="text-button" id="exit-demo">导入我的聊天</button></div>
+      <section id="panel-import" class="panel" aria-labelledby="import-title">
+        <div class="section-heading">
+          <p class="section-context">WhatsApp 回复助手</p>
+          <h1 id="import-title" tabindex="-1">导入一段聊天</h1>
+          <p>用这段聊天，让 Q’s echo 学会你和这个人说话的语气。</p>
+        </div>
+        <div class="card compact-card" id="resume-card" hidden>
+          <div><h2 id="resume-title">继续已学习的聊天</h2><label class="sr-only" for="resume-profile">选择已学习的聊天</label><select id="resume-profile"></select></div>
+          <button type="button" class="secondary" id="resume-chat">继续</button>
+        </div>
+        <div class="card import-card">
+          <div id="drop-zone" class="drop-zone">
+            <div class="file-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+            <h2>选择 WhatsApp 聊天文件</h2>
+            <p>支持导出的 .txt 和 .zip 文件。<span class="desktop-drop-hint">也可以拖到这里。</span></p>
+            <button type="button" class="primary" id="choose-file">选择聊天文件</button>
+            <input type="file" id="chat-file" accept=".txt,.zip,text/plain,application/zip" hidden>
+          </div>
+          <p id="import-notice" class="notice" role="status" hidden></p>
+          <div class="import-help"><span>想一起导入语音？导出时选择「包含媒体」。</span><button type="button" class="text-button" id="open-help" aria-haspopup="dialog">查看导出方法</button></div>
+        </div>
+        <div class="card demo-card">
+          <span class="demo-mark" aria-hidden="true">▷</span>
+          <div><h2>先用示例试一下</h2><p>从学习语气到安排回复，体验全程无需 API 密钥。</p></div>
+          <button type="button" id="start-demo" class="secondary">试用示例</button>
+        </div>
+        <button type="button" class="text-button" id="reset-data" hidden>清空本机数据</button>
+      </section>
+
+      <section id="panel-learn" class="panel" aria-labelledby="learn-title" hidden>
+        <div class="section-heading">
+          <p class="section-context" id="learn-context">已导入聊天</p>
+          <h1 id="learn-title" tabindex="-1">学习你的说话方式</h1>
+          <p id="learn-instructions">选出哪一个是你，Q’s echo 就会找出你常用的表达。</p>
+        </div>
+        <form class="card form-card" id="learn-form">
+          <h2>哪一个是你？</h2>
+          <fieldset id="participants" class="participants"><legend class="sr-only">选择自己</legend></fieldset>
+          <div id="learn-ai-row" hidden><label class="check-row"><input type="checkbox" id="learn-ai"><span>让 OpenAI 帮我总结语气</span></label><p class="muted">开启后，会将选取的聊天片段发送给 OpenAI。</p></div>
+          <div id="learn-audio-row" hidden><label class="check-row"><input type="checkbox" id="learn-audio"><span>一起识别导出的语音消息 <small id="learn-audio-count"></small></span></label><p class="muted" id="learn-audio-note">开启后，会将选取的语音发送给 OpenAI 转成文字。</p></div>
+          <p id="learn-method" class="muted"></p>
+          <p id="learn-notice" class="notice" role="status" hidden></p>
+          <button type="submit" class="primary" id="learn-button">开始学习</button>
+        </form>
+        <div class="card form-card" id="profile-card" hidden>
+          <h2>你的语气</h2>
+          <p id="profile-summary" class="profile-summary"></p>
+          <p id="voice-learning-result" class="muted" hidden></p>
+          <div id="profile-tags" class="tags" aria-label="语气特点"></div>
+          <details id="examples-details" class="examples" hidden><summary id="examples-label">查看聊天例子</summary><div id="examples-list"></div></details>
+          <div class="actions"><button type="button" class="primary" id="continue-reply">去准备回复</button><button type="button" class="secondary" id="download-skill" hidden>下载语气文件</button></div>
+        </div>
+      </section>
+
+      <section id="panel-reply" class="panel" aria-labelledby="reply-title" hidden>
+        <div class="section-heading">
+          <p class="section-context" id="reply-context">已学会语气</p>
+          <h1 id="reply-title" tabindex="-1">准备一条回复</h1>
+          <p id="reply-instructions">粘贴对方发来的消息，或者上传一段语音。到时间后由你在 WhatsApp 确认发送。</p>
+        </div>
+        <form class="card form-card" id="reply-form">
+          <label for="incoming" class="field-label">对方的消息</label>
+          <textarea id="incoming" rows="3" maxlength="8000" placeholder="把对方发给你的消息粘贴到这里。"></textarea>
+          <div class="actions audio-actions" id="audio-drop"><button type="button" class="secondary" id="choose-audio">选择语音文件</button><button type="button" class="text-button" id="example-message" hidden>用一条示例消息</button><button type="button" class="text-button" id="example-audio" hidden>试用语音识别</button><span class="muted" id="audio-drop-hint">也可以把语音文件拖到这里。</span></div>
+          <input type="file" id="audio-file" accept="audio/*,video/mp4,.ogg,.opus,.m4a,.mp3,.wav,.webm,.mpeg,.mpga,.aac,.flac,.mp4" hidden>
+          <p id="reply-method" class="muted"></p>
+          <div class="schedule-group">
+            <label for="schedule-mode" class="field-label">什么时候提醒我发送？</label>
+            <select id="schedule-mode"><option value="now">现在</option><option value="fixed">一段时间后</option><option value="random">在一个时间范围内随机</option><option value="at">指定日期和时间</option></select>
+            <div class="schedule-inputs range-fields" id="fixed-fields" hidden><div><label for="fixed-delay">等待时间</label><input type="number" id="fixed-delay" min="1" step="1" max="720" value="1" inputmode="numeric"></div><div><label for="fixed-unit">单位</label><select id="fixed-unit"><option value="60">小时</option><option value="1">分钟</option></select></div></div>
+            <div class="schedule-inputs range-fields range-fields-wide" id="random-fields" hidden><div><label for="min-delay">最少等待</label><input type="number" id="min-delay" min="1" step="1" max="720" value="1" inputmode="numeric"></div><div><label for="max-delay">最多等待</label><input type="number" id="max-delay" min="1" step="1" max="720" value="3" inputmode="numeric"></div><div><label for="random-unit">单位</label><select id="random-unit"><option value="60">小时</option><option value="1">分钟</option></select></div></div>
+            <div class="schedule-inputs" id="at-fields" hidden><label for="scheduled-at">选择日期和时间</label><input type="datetime-local" id="scheduled-at"></div>
+          </div>
+          <p id="reply-notice" class="notice" role="status" hidden></p>
+          <button type="submit" class="primary" id="draft-button">生成并保存回复</button>
+        </form>
+
+        <div class="card form-card" id="queue-card" hidden>
+          <div class="card-heading"><h2 id="queue-heading" tabindex="-1">已安排的回复</h2><button type="button" class="text-button" id="allow-notifications" hidden>开启浏览器提醒</button></div>
+          <p class="muted">保持此页面和 Q’s echo 开着，到时间就会收到提醒。</p>
+          <p id="queue-notice" class="notice" role="status" hidden></p>
+          <div id="queue-list"></div>
+        </div>
+
+        <form class="card form-card" id="bind-form">
+          <h2>选择要回复的 WhatsApp 联系人</h2>
+          <p class="muted" id="bind-label">输入对方的手机号。到时间后就能打开这一个聊天。</p>
+          <label for="chat-phone" class="field-label small-label">对方的手机号（含国家或地区区号）</label>
+          <div class="inline-fields"><input type="tel" id="chat-phone" placeholder="例如 +1 202 555 0142" maxlength="32" required><button type="submit" id="bind-button" class="secondary">保存联系人</button><button type="button" id="unbind-button" class="text-button" hidden>取消关联</button></div>
+          <p id="bind-notice" class="notice" role="status" hidden></p>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="ai-dialog" aria-labelledby="ai-dialog-title">
+    <div class="dialog-heading"><h2 id="ai-dialog-title">设置 OpenAI</h2><button type="button" class="close" data-close="ai-dialog" aria-label="关闭">×</button></div>
+    <form id="ai-form">
+      <p>粘贴自己的 OpenAI API 密钥，就能使用 AI 学习语气、生成回复和识别语音。</p>
+      <label for="api-key" class="field-label small-label">OpenAI API 密钥</label>
+      <input type="password" id="api-key" placeholder="sk-…" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="512" required>
+      <details class="model-details"><summary>更改 AI 模型（可选）</summary><label for="api-model" class="field-label small-label">模型名称</label><input type="text" id="api-model" placeholder="使用推荐模型" maxlength="80" autocomplete="off" spellcheck="false"></details>
+      <p class="muted">连接时会发送一条不含聊天内容的验证请求。关闭启动 Q’s echo 时打开的窗口，密钥就会清除。</p>
+      <p id="ai-notice" class="notice" role="status" hidden></p>
+      <div class="actions"><button type="submit" class="primary" id="save-ai">保存密钥</button><button type="button" class="secondary" id="forget-ai" hidden>清除密钥</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="help-dialog" aria-labelledby="help-title">
+    <div class="dialog-heading"><h2 id="help-title">如何导出一段聊天</h2><button type="button" class="close" data-close="help-dialog" aria-label="关闭">×</button></div>
+    <div class="instructions"><h3>iPhone</h3><p>在 WhatsApp 打开想要导出的聊天，点上方的联系人名字，向下找到「导出聊天」。</p><h3>Android</h3><p>在 WhatsApp 打开想要导出的聊天，点右上角的三个点，选「更多」，再选「导出聊天」。</p><h3>网页版</h3><p>打开想导出的聊天，在右上角菜单中选「导出聊天」，再选日期范围。</p><p>想保留语音，请在手机上导出并选「包含媒体」。把文件保存到这台电脑，回到这里点「选择聊天文件」。</p></div>
+    <button type="button" class="primary" data-close="help-dialog">我知道了</button>
+  </dialog>
+  <dialog id="bind-dialog" aria-labelledby="bind-title">
+    <div class="dialog-heading"><h2 id="bind-title">确认要关联的聊天</h2><button type="button" class="close" data-close="bind-dialog" aria-label="关闭">×</button></div>
+    <form id="confirm-bind-form">
+      <p id="confirm-bind-text"></p>
+      <label class="check-row"><input type="checkbox" id="confirm-direct" required><span>这是我和对方的私聊，号码也已核对。</span></label>
+      <div class="actions"><button type="submit" class="primary">确认关联</button><button type="button" class="secondary" data-close="bind-dialog">返回修改</button></div>
+    </form>
+  </dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+</body>
+</html>
